@@ -101,15 +101,33 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 const $ = id => document.getElementById(id);
 let data = GEOJSON, markers = L.layerGroup().addTo(map), routeLine = null, latest = null, me = null, meMarker = null, first = true;
 
-function parseDate(s){ return new Date(s); }
+// Idő: mindig Győr (Europe/Budapest) helyi ideje szerint, "YYYY-MM-DDTHH:MM:SS" szövegként összehasonlítva
+const TZ = 'Europe/Budapest';
+function budapestWall(d){
+  const o = {}; new Intl.DateTimeFormat('en-GB', { timeZone:TZ, hourCycle:'h23', year:'numeric', month:'2-digit',
+    day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' }).formatToParts(d).forEach(p => o[p.type] = p.value);
+  return `${o.year}-${o.month}-${o.day}T${o.hour}:${o.minute}:${o.second}`;
+}
+// A geojson "dátum" értéke helyi (győri) idő; ha időzóna-jelölést (Z / +01:00) tartalmaz, átváltjuk győri időre
+function dkey(s){
+  s = String(s).trim().replace(' ', 'T');
+  if (/(Z|[+-]\d\d:?\d\d)$/.test(s)) return budapestWall(new Date(s));
+  if (s.length === 10) s += 'T00:00:00';
+  if (s.length === 16) s += ':00';
+  return s.slice(0, 19);
+}
+// ?szam=12 → a 12-es pont ideje számít "mostnak": ő a csillag, és minden korábbi pont látszik
+const SZAM = (() => { const v = new URLSearchParams(location.search).get('szam'); return v !== null && v.trim() !== '' && !isNaN(v) ? parseInt(v, 10) : null; })();
 
 function render(){
   markers.clearLayers();
-  const now = new Date();
-  const vis = data.features
-    .filter(f => f.geometry && f.geometry.type === 'Point' && parseDate(f.properties['dátum']) <= now)
-    .sort((a,b) => parseDate(a.properties['dátum']) - parseDate(b.properties['dátum']));
-  const newest = vis.length ? vis[vis.length-1] : null;
+  const pts = data.features.filter(f => f.geometry && f.geometry.type === 'Point');
+  const forced = SZAM === null ? null : pts.find(f => f.properties['szám'] === SZAM) || null;
+  const now = forced ? dkey(forced.properties['dátum']) : budapestWall(new Date());
+  const vis = pts
+    .filter(f => dkey(f.properties['dátum']) <= now)
+    .sort((a,b) => dkey(a.properties['dátum']).localeCompare(dkey(b.properties['dátum'])));
+  const newest = forced || (vis.length ? vis[vis.length-1] : null);
 
   vis.forEach(f => {
     const [lng, lat] = f.geometry.coordinates, p = f.properties;
@@ -129,7 +147,7 @@ function render(){
     const p = newest.properties;
     $('num').textContent = p['szám'];
     $('addr').textContent = p['cím'];
-    $('meta').textContent = parseDate(p['dátum']).toLocaleString('hu-HU');
+    $('meta').textContent = dkey(p['dátum']).replace('T',' ').slice(0,16);
     $('go').disabled = false;
     if (first) {
       first = false;
