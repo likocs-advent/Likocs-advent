@@ -168,12 +168,14 @@ function render(){
 }
 
 function startLocation(){
+  setTimeout(() => { if (!me) showFallback(); }, 10000);
   if (!navigator.geolocation) return;
   navigator.geolocation.watchPosition(pos => {
     me = [pos.coords.latitude, pos.coords.longitude];
+    $('fb').hidden = true;
     if (!meMarker) meMarker = L.marker(me, { icon:L.divIcon({className:'', html:'<div class="me"></div>', iconSize:[16,16], iconAnchor:[8,8]}), interactive:false, zIndexOffset:-100 }).addTo(map);
     else meMarker.setLatLng(me);
-  }, () => {}, { enableHighAccuracy:true, maximumAge:5000 });
+  }, () => { if (!me) showFallback(); }, { enableHighAccuracy:true, maximumAge:5000 });
 }
 
 function getPosition(){
@@ -181,7 +183,7 @@ function getPosition(){
     if (me) return res(me);
     navigator.geolocation.getCurrentPosition(
       p => { me = [p.coords.latitude, p.coords.longitude]; res(me); },
-      rej, { enableHighAccuracy:true, timeout:15000 });
+      rej, { enableHighAccuracy:true, timeout:10000 });
   });
 }
 
@@ -212,7 +214,11 @@ $('go').addEventListener('click', async () => {
   const btn = $('go'); btn.disabled = true; btn.textContent = '…';
   try {
     let geoFail = false;
-    const from = await getPosition().catch(e => { geoFail = true; throw e; });
+    let tm;
+    const from = await Promise.race([
+      getPosition(),
+      new Promise((_, rej) => { tm = setTimeout(() => rej(new Error('timeout')), 10000); })
+    ]).catch(e => { geoFail = true; throw e; }).finally(() => clearTimeout(tm));
     $('fb').hidden = true;
     const [dLng, dLat] = latest.geometry.coordinates;
     const url = `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${from[1]},${from[0]};${dLng},${dLat}?overview=full&geometries=geojson`;
