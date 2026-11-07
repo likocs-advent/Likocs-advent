@@ -19,7 +19,8 @@
   #num { flex:none; width:48px; height:48px; border-radius:50%; background:#1f8a3c; color:#fff; border:3px solid #d4af37;
     font-weight:700; font-size:20px; display:flex; align-items:center; justify-content:center; }
   #txt { flex:1; min-width:0; }
-  #addr { color:#7a1017; font-weight:700; font-size:15px; line-height:1.25; overflow-wrap:anywhere; }
+  #date, #addr { color:#7a1017; font-weight:700; font-size:15px; line-height:1.25; overflow-wrap:anywhere; }
+  #date { font-size:15px; line-height:1.25; color:#b3202a; }
   #meta { font-size:12px; color:#555; margin-top:2px; }
   #go { flex:none; border:2px solid #d4af37; background:#b3202a; color:#fff; font-size:14px; font-weight:600;
     padding:12px 14px; border-radius:10px; touch-action:manipulation; }
@@ -58,7 +59,7 @@
 <canvas id="snow" class="xmas"></canvas>
 <div id="info">
   <div id="num">–</div>
-  <div id="txt"><div id="addr">Nincs megjeleníthető pont</div><div id="meta"></div></div>
+  <div id="txt"><div id="date"></div><div id="addr">Nincs megjeleníthető pont</div><div id="meta"></div></div>
   <button id="go" disabled>Vezess oda</button>
 </div>
 
@@ -103,6 +104,7 @@ let data = GEOJSON, markers = L.layerGroup().addTo(map), routeLine = null, lates
 
 // Idő: mindig Győr (Europe/Budapest) helyi ideje szerint, "YYYY-MM-DDTHH:MM:SS" szövegként összehasonlítva
 const TZ = 'Europe/Budapest';
+const HU_MONTHS = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
 function budapestWall(d){
   const o = {}; new Intl.DateTimeFormat('en-GB', { timeZone:TZ, hourCycle:'h23', year:'numeric', month:'2-digit',
     day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' }).formatToParts(d).forEach(p => o[p.type] = p.value);
@@ -147,7 +149,9 @@ function render(){
     const p = newest.properties;
     $('num').textContent = p['szám'];
     $('addr').textContent = p['cím'];
-    $('meta').textContent = dkey(p['dátum']).replace('T',' ').slice(0,16);
+    const k = dkey(p['dátum']);
+    $('date').textContent = HU_MONTHS[parseInt(k.slice(5,7),10)-1] + ' ' + parseInt(k.slice(8,10),10) + '.';
+    if (changed) { $('meta').textContent = ''; if (routeLine) { map.removeLayer(routeLine); routeLine = null; } }
     $('go').disabled = false;
     if (first) {
       first = false;
@@ -156,7 +160,7 @@ function render(){
     }
   } else {
     $('num').textContent = '–'; $('addr').textContent = 'Nincs megjeleníthető pont';
-    $('meta').textContent = ''; $('go').disabled = true;
+    $('date').textContent = ''; $('meta').textContent = ''; $('go').disabled = true;
   }
 }
 
