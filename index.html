@@ -21,6 +21,8 @@
   #txt { flex:1; min-width:0; }
   #date, #addr { color:#7a1017; font-weight:700; font-size:15px; line-height:1.25; overflow-wrap:anywhere; }
   #date { font-size:15px; line-height:1.25; color:#b3202a; }
+  #fb { margin-top:8px; font-size:12px; color:#333; line-height:1.35; }
+  #fb button { margin:6px 6px 0 0; border:2px solid #d4af37; background:#1f8a3c; color:#fff; font-size:13px; font-weight:600; padding:8px 10px; border-radius:8px; touch-action:manipulation; }
   #meta { font-size:12px; color:#555; margin-top:2px; }
   #go { flex:none; border:2px solid #d4af37; background:#b3202a; color:#fff; font-size:14px; font-weight:600;
     padding:12px 14px; border-radius:10px; touch-action:manipulation; }
@@ -59,7 +61,8 @@
 <canvas id="snow" class="xmas"></canvas>
 <div id="info">
   <div id="num">–</div>
-  <div id="txt"><div id="date"></div><div id="addr">Nincs megjeleníthető pont</div><div id="meta"></div></div>
+  <div id="txt"><div id="date"></div><div id="addr">Nincs megjeleníthető pont</div><div id="meta"></div>
+    <div id="fb" hidden></div></div>
   <button id="go" disabled>Vezess oda</button>
 </div>
 
@@ -182,11 +185,35 @@ function getPosition(){
   });
 }
 
+// Ha a helyzet nem kérhető le (pl. Messenger/Facebook beépített böngészője), felkínáljuk a külső böngészőt
+function showFallback(){
+  const fb = $('fb'), url = location.href, ua = navigator.userAgent;
+  const android = /Android/i.test(ua), ios = /iPhone|iPad|iPod/i.test(ua);
+  fb.innerHTML = '<b>Nem sikerült lekérni a helyzetedet.</b> Ez gyakori beépített böngészőben (pl. Messenger). Próbáld meg külső böngészőben:'
+    + '<br><button id="fbOpen">Megnyitás böngészőben</button><button id="fbCopy">Link másolása</button>'
+    + (ios ? '<br>Vagy: ⋯ menü → „Megnyitás Safariban”.' : '');
+  fb.hidden = false;
+  $('fbOpen').onclick = () => {
+    if (android) {
+      const u = new URL(url), scheme = u.protocol.replace(':','');
+      location.href = `intent://${u.host}${u.pathname}${u.search}#Intent;scheme=${scheme};package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+    } else {
+      window.open(url, '_blank');
+    }
+  };
+  $('fbCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText(url); $('fbCopy').textContent = 'Kimásolva ✓'; }
+    catch (e) { prompt('Másold ki a linket:', url); }
+  };
+}
+
 $('go').addEventListener('click', async () => {
   if (!latest) return;
   const btn = $('go'); btn.disabled = true; btn.textContent = '…';
   try {
-    const from = await getPosition();
+    let geoFail = false;
+    const from = await getPosition().catch(e => { geoFail = true; throw e; });
+    $('fb').hidden = true;
     const [dLng, dLat] = latest.geometry.coordinates;
     const url = `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${from[1]},${from[0]};${dLng},${dLat}?overview=full&geometries=geojson`;
     const r = await (await fetch(url)).json();
@@ -198,7 +225,8 @@ $('go').addEventListener('click', async () => {
     const km = route.distance/1000, min = Math.round(route.duration/60);
     $('meta').textContent = `Gyalog: ${km < 1 ? Math.round(route.distance)+' m' : km.toFixed(1)+' km'} · ~${min} perc`;
   } catch (e) {
-    $('meta').textContent = 'Nem sikerült útvonalat tervezni (helymeghatározás vagy hálózat).';
+    if (geoFail) { $('meta').textContent = ''; showFallback(); }
+    else $('meta').textContent = 'Nem sikerült útvonalat tervezni (hálózati hiba vagy nincs útvonal).';
   }
   btn.disabled = false; btn.textContent = 'Vezess oda';
 });
