@@ -198,7 +198,7 @@ function showFallback(){
   $('fbOpen').onclick = () => {
     if (android) {
       const u = new URL(url), scheme = u.protocol.replace(':','');
-      location.href = `intent://${u.host}${u.pathname}${u.search}#Intent;scheme=${scheme};package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+      location.href = `intent://${u.host}${u.pathname}${u.search}#Intent;scheme=${scheme};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${encodeURIComponent(url)};end`;
     } else {
       window.open(url, '_blank');
     }
