@@ -168,14 +168,14 @@ function render(){
 }
 
 function startLocation(){
-  if (IN_APP) setTimeout(() => { if (!me) showFallback(); }, 10000);
+  setTimeout(() => { if (!me) showFallback(); }, 10000);
   if (!navigator.geolocation) return;
   navigator.geolocation.watchPosition(pos => {
     me = [pos.coords.latitude, pos.coords.longitude];
     $('fb').hidden = true;
     if (!meMarker) meMarker = L.marker(me, { icon:L.divIcon({className:'', html:'<div class="me"></div>', iconSize:[16,16], iconAnchor:[8,8]}), interactive:false, zIndexOffset:-100 }).addTo(map);
     else meMarker.setLatLng(me);
-  }, () => { if (IN_APP && !me) showFallback(); }, { enableHighAccuracy:true, maximumAge:5000 });
+  }, () => { if (!me) showFallback(); }, { enableHighAccuracy:true, maximumAge:5000 });
 }
 
 function getPosition(){
