@@ -191,8 +191,8 @@ function getPosition(){
 function showFallback(){
   const fb = $('fb'), url = location.href, ua = navigator.userAgent;
   const android = /Android/i.test(ua), ios = /iPhone|iPad|iPod/i.test(ua);
-  fb.innerHTML = '<b>Nem sikerült lekérni a helyzetedet.</b> Ez gyakori beépített böngészőben (pl. Messenger). Próbáld meg külső böngészőben:'
-    + '<br><button id="fbOpen">Megnyitás böngészőben</button><button id="fbCopy">Link másolása</button>'
+  fb.innerHTML = '<b>Nem sikerült lekérni a helyzetedet.</b> Ez gyakori beépített böngészőben (pl. Facebook). Próbáld meg külső böngészőben:'
+    + '<br><button id="fbOpen">Megnyitás böngészőben</button>'
     + (ios ? '<br>Vagy: ⋯ menü → „Megnyitás Safariban”.' : '');
   fb.hidden = false;
   $('fbOpen').onclick = () => {
@@ -202,10 +202,6 @@ function showFallback(){
     } else {
       window.open(url, '_blank');
     }
-  };
-  $('fbCopy').onclick = async () => {
-    try { await navigator.clipboard.writeText(url); $('fbCopy').textContent = 'Kimásolva ✓'; }
-    catch (e) { prompt('Másold ki a linket:', url); }
   };
 }
 
