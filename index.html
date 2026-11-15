@@ -107,7 +107,7 @@ const GEOJSON = {
 const GEOJSON_URL = "";
 // ================================================
 
-const map = L.map('map', { zoomControl:false }).setView([47.6745, 17.6830], 15);
+const map = L.map('map', { zoomControl:false }).setView([47.7111, 17.67305], 15);
 L.control.zoom({ position:'bottomright' }).addTo(map);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom:19, attribution:'© OpenStreetMap'
@@ -223,7 +223,7 @@ function render(){
       map.setView([lat, lng], 15);
     }
   } else {
-    $('num').textContent = '–'; $('addr').textContent = 'Nincs megjeleníthető pont';
+    $('num').textContent = '–'; $('addr').textContent = 'Még várj egy pár napot :)';
     $('date').textContent = ''; $('meta').textContent = ''; $('go').disabled = true;
   }
   spread();
