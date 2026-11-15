@@ -143,11 +143,11 @@ function render(){
   const forced = SZAM === null ? null : pts.find(f => f.properties['szám'] === SZAM) || null;
   const now = forced ? dkey(forced.properties['dátum']) : budapestWall(new Date());
   const vis = pts
-    .filter(f => dkey(f.properties['dátum']) <= now)
-    .sort((a,b) => dkey(a.properties['dátum']).localeCompare(dkey(b.properties['dátum'])));
-  const newest = forced || (vis.length ? vis[vis.length-1] : null);
+    .filter(f => dkey(f.properties['dátum']) <= now);   // a geojson-beli sorrend megmarad
+  // A legutolsó pont a legkésőbbi dátumú (azonos dátumnál a listában később szereplő)
+  const newest = forced || vis.reduce((a, f) => (!a || dkey(f.properties['dátum']) >= dkey(a.properties['dátum'])) ? f : a, null);
 
-  vis.forEach(f => {
+  vis.forEach((f, i) => {
     const [lng, lat] = f.geometry.coordinates, p = f.properties;
     const isLatest = f === newest;
     const icon = isLatest
@@ -155,7 +155,7 @@ function render(){
           html:`<div class="star"><svg viewBox="0 0 24 24"><path fill="#d4af37" stroke="#b3202a" stroke-width="1" d="M12 1.5l3.1 6.6 7.2.9-5.3 5 1.4 7.1L12 17.6 5.6 21.1 7 14l-5.3-5 7.2-.9z"/></svg><span>${p['szám']}</span></div>` })
       : L.divIcon({ className:'', iconSize:[30,30], iconAnchor:[15,15],
           html:`<div class="pt" style="width:30px;height:30px">${p['szám']}</div>` });
-    L.marker([lat, lng], { icon, zIndexOffset: isLatest ? 1000 : 0 })
+    L.marker([lat, lng], { icon, zIndexOffset: i * 10000 })
       .bindPopup(`<b>${p['szám']}</b><br>${p['cím']}`).addTo(markers);
   });
 
