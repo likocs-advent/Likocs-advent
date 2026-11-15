@@ -137,7 +137,54 @@ const SZAM = (() => { const v = new URLSearchParams(location.search).get('szam')
 // ?szam= módban nincs útvonaltervezés: a gomb helyén ünnepi dísz látszik
 if (SZAM !== null) { document.getElementById('go').hidden = true; document.getElementById('gift').hidden = false; }
 
+// ?szam= módban: a pontokat úgy toljuk szét, hogy ne takarják egymást 50%-nál jobban
+const MAX_OVERLAP = 0.5;
+const leaders = L.layerGroup().addTo(map);
+let spreadItems = [];
+const needCache = {};
+function overlapFrac(d, r1, r2){            // átfedő terület / a kisebb kör területe
+  const a = Math.min(r1, r2), b = Math.max(r1, r2);
+  if (d >= a + b) return 0;
+  if (d <= b - a) return 1;
+  const A = a*a*Math.acos((d*d + a*a - b*b) / (2*d*a)) + b*b*Math.acos((d*d + b*b - a*a) / (2*d*b))
+          - 0.5*Math.sqrt((-d+a+b) * (d+a-b) * (d-a+b) * (d+a+b));
+  return A / (Math.PI * a * a);
+}
+function minDist(r1, r2){                    // legkisebb középpont-távolság, ahol az átfedés még ≤ 50%
+  const key = r1 + '_' + r2;
+  if (needCache[key]) return needCache[key];
+  let lo = Math.abs(r1 - r2), hi = r1 + r2;
+  for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (overlapFrac(mid, r1, r2) > MAX_OVERLAP) lo = mid; else hi = mid; }
+  return needCache[key] = hi;
+}
+function spread(){
+  leaders.clearLayers();
+  const n = spreadItems.length; if (!n) return;
+  const o = spreadItems.map(it => map.latLngToLayerPoint(it.ll));
+  const q = o.map(p => ({ x:p.x, y:p.y }));
+  for (let k = 0; k < 150; k++) {
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      const dx = q[j].x - q[i].x, dy = q[j].y - q[i].y, d = Math.hypot(dx, dy);
+      const need = minDist(spreadItems[i].r, spreadItems[j].r) * 1.02;
+      if (d >= need) continue;
+      let ux, uy;
+      if (d < 0.01) { const a = (i * 7 + j) * 2.399; ux = Math.cos(a); uy = Math.sin(a); } else { ux = dx / d; uy = dy / d; }
+      const push = (need - d) / 2;
+      q[i].x -= ux * push; q[i].y -= uy * push; q[j].x += ux * push; q[j].y += uy * push;
+    }
+    if (k < 110) for (let i = 0; i < n; i++) { q[i].x += (o[i].x - q[i].x) * 0.03; q[i].y += (o[i].y - q[i].y) * 0.03; }
+  }
+  spreadItems.forEach((it, i) => {
+    const ll = map.layerPointToLatLng(L.point(q[i].x, q[i].y));
+    it.m.setLatLng(ll);
+    if (Math.hypot(q[i].x - o[i].x, q[i].y - o[i].y) > 3)   // vékony vezetővonal az eredeti helyhez
+      L.polyline([it.ll, ll], { color:'#d4af37', weight:2, opacity:.9, interactive:false }).addTo(leaders);
+  });
+}
+map.on('zoomend', () => { if (SZAM !== null) spread(); });
+
 function render(){
+  spreadItems = [];
   markers.clearLayers();
   const pts = data.features.filter(f => f.geometry && f.geometry.type === 'Point');
   const forced = SZAM === null ? null : pts.find(f => f.properties['szám'] === SZAM) || null;
@@ -155,8 +202,9 @@ function render(){
           html:`<div class="star"><svg viewBox="0 0 24 24"><path fill="#d4af37" stroke="#b3202a" stroke-width="1" d="M12 1.5l3.1 6.6 7.2.9-5.3 5 1.4 7.1L12 17.6 5.6 21.1 7 14l-5.3-5 7.2-.9z"/></svg><span>${p['szám']}</span></div>` })
       : L.divIcon({ className:'', iconSize:[30,30], iconAnchor:[15,15],
           html:`<div class="pt" style="width:30px;height:30px">${p['szám']}</div>` });
-    L.marker([lat, lng], { icon, zIndexOffset: i * 10000 })
+    const m = L.marker([lat, lng], { icon, zIndexOffset: i * 10000 })
       .bindPopup(`<b>${p['szám']}</b><br>${p['cím']}`).addTo(markers);
+    spreadItems.push({ m, ll:[lat, lng], r: isLatest ? 28 : 15 });
   });
 
   const changed = !latest || !newest || latest !== newest;
@@ -178,6 +226,7 @@ function render(){
     $('num').textContent = '–'; $('addr').textContent = 'Nincs megjeleníthető pont';
     $('date').textContent = ''; $('meta').textContent = ''; $('go').disabled = true;
   }
+  if (SZAM !== null) spread();
 }
 
 function startLocation(){
